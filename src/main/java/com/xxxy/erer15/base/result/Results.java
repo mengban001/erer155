@@ -1,10 +1,11 @@
 package com.xxxy.erer15.base.result;
 
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.List;
-
+@Slf4j
 @Data
 public class Results<T>  implements Serializable {
 

@@ -1,63 +1,103 @@
 package com.xxxy.erer15.service.impl;
 
-
 import com.xxxy.erer15.base.result.Results;
-import com.xxxy.erer15.dao.SysRolrUserDao;
+import com.xxxy.erer15.dao.RoleUserDao;
 import com.xxxy.erer15.dao.UserDao;
+import com.xxxy.erer15.dto.UserDto;
 import com.xxxy.erer15.model.SysRoleUser;
 import com.xxxy.erer15.model.SysUser;
-import com.xxxy.erer15.service.ImpUserService;
+import com.xxxy.erer15.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * UserServiceImpl
- *
- * @author erer
- * @date 2020/2/29
- */
 @Service
-@Transactional//设置事务级别为默认的: 读写提交:一个事务只能读取另一个已经提交的数据.不能读取未提交的数据.只能用于public方法
-public class UserServiceImpl implements ImpUserService {
-    @Autowired
-    private UserDao userDao;
-    @Autowired
-    private SysRolrUserDao sysRolrUserDao;
-    @Override
-    public SysUser getUser(String username) {
-        return userDao.getUser(username);
-    }
-    @Override
-    public Results<SysUser> getAllUsersByPage(Integer offSet, Integer limit) {
-        return Results.success(userDao.countAllUser().intValue(),userDao.getAllUsersByPage(offSet,limit));
-    }
+@Transactional
+public class UserServiceImpl implements UserService {
+	@Autowired
+	private UserDao userDao;
 
-    @Override
-    public Results<SysUser> sava(SysUser sysUser, Integer roleId) {
-        if (roleId != null){
-            userDao.save(sysUser);
-            SysRoleUser sysRoleUser = new SysRoleUser();
-            sysRoleUser.setRoleId(roleId);
-            sysRoleUser.setUserId(sysUser.getStatus());
-            sysRolrUserDao.save(sysRoleUser);
-            return Results.success();
-            //user
-            //rouId
-            }
-            return Results.failure();
+	@Autowired
+	private RoleUserDao roleUserDao;
 
-    }
+	@Override
+	public SysUser getUser(String username) {
+		return userDao.getUser(username);
+	}
 
-    @Override
-    public SysUser getUserByPhone(String telephone) {
-        return userDao.getUserByphone(telephone);
-    }
+	@Override
+	public Results<SysUser> getAllUsersByPage(Integer startPosition, Integer limit) {
+		return Results.success(userDao.countAllUsers().intValue(),userDao.getAllUsersByPage(startPosition,limit));
+	}
+
+	@Override
+	public SysUser getUserByPhone(String phone) {
+		return userDao.getUserByPhone(phone);
+	}
+
+	@Override
+	public SysUser getUserByEmail(String email) {
+		return userDao.getUserByEmail(email);
+	}
+
+	@Override
+	public Results save(SysUser user,Integer roleId) {
+
+		if(roleId != null){
+			userDao.save(user);
+			SysRoleUser sysRoleUser = new SysRoleUser();
+			sysRoleUser.setRoleId(roleId);
+			sysRoleUser.setUserId(user.getId().intValue());
+			roleUserDao.save(sysRoleUser);
+			return Results.success();
+		}
+		return Results.failure();
+	}
 
     @Override
     public SysUser getUserById(Long id) {
-        return userDao.getUserById(id);
+        return userDao.getById(id);
     }
 
+    @Override
+    public Results updateUser(UserDto userDto, Integer roleId) {
+        if(roleId != null){
+            userDao.updateUser(userDto);
+            SysRoleUser sysRoleUser = new SysRoleUser();
+            sysRoleUser.setUserId(userDto.getId().intValue());
+            sysRoleUser.setRoleId(roleId);
+            if(roleUserDao.getSysRoleUserByUserId(userDto.getId().intValue())!= null){
+                roleUserDao.updateSysRoleUser(sysRoleUser);
+            }else{
+                roleUserDao.save(sysRoleUser);
+            }
+            return Results.success();
+        }else{
+            return Results.failure();
+        }
+    }
 
+    public int deleteUser(Long id) {
+        roleUserDao.deleteRoleUserByUserId(id.intValue());
+        return userDao.deleteUser(id);
+    }
+
+	@Override
+	public Results<SysUser> getUserByFuzzyUserNamePage(String username, Integer startPosition, Integer limit) {
+		return Results.success(userDao.getUserByFuzzyUserName(username).intValue(),userDao.getUserByFuzzyUserNamePage(username,startPosition,limit));
+	}
+
+	@Override
+	public Results<SysUser> changePassword(String username, String oldPassword, String newPassword) {
+		SysUser u = userDao.getUser(username);
+		if (u == null) {
+			return Results.failure(1,"用户不存在");
+		}
+		if (!new BCryptPasswordEncoder().encode(oldPassword).equals(u.getPassword())) {
+			return Results.failure(1,"旧密码错误");
+		}
+		userDao.changePassword(u.getId(), new BCryptPasswordEncoder().encode(newPassword));
+		return Results.success();
+	}
 }
